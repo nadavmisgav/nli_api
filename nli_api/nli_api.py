@@ -140,6 +140,8 @@ class NLI_API:
         query_str = str(query)
 
         if all_pages:
+            num_articles = self.get_num_articles(query)
+            num_pages = num_articles // 50 + 1
             return self._get_many_pages(query_str, num_pages)
 
         return self._get_page(query_str, page=page)
