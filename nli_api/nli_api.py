@@ -49,42 +49,62 @@ class NLI_API:
         """
         self.session = session
 
-    def _get(self, url: str) -> dict:
+    def _get(self, url: str) -> requests.Response:
         res = self.session.get(url)
         res.raise_for_status()
+        return res
+
+    def _api_get(self, url: str) -> requests.Response:
+        res = self._get(url)
         if "errors" in res.headers:
             if Errors.INVALID_PAGE.value in res.headers["errors"]:
                 raise FileExistsError("Page does not exist.")
 
-        return res.json()
+        return res
 
-    def _api_get(self, query: str, page: Optional[int] = None) -> List[NLI_API_Response]:
+    def _api_query_page(self, encoded_query: str, page: Optional[int] = None) -> requests.Response:
         """
         Get a response from the API.
 
-        :param query: str - query to search for.
+        :param encoded_query: str - encoded_query to search for.
         :param page: Optional[int] - page number to search for.
         :return: List[NLI_API_Response] - response from the API.
         """
-        quoted = requests.utils.quote(query)
+        quoted = requests.utils.quote(encoded_query)
         url = self.BASE_URL.format(query=quoted)
         if page:
             url += f"&result_page={page}"
 
-        res = self._get(url)
-        return list(self._parse_response(res))
+        res = self._api_get(url)
+        return res
 
-    def _get_num_articles(self, query_str: str) -> int:
+    def _get_page(self, encoded_query: str, page: Optional[int] = None) -> List[NLI_API_Response]:
         """
-        Get the number of articles from the API.
+        Get a single page of a query.
 
-        :param query_str: str - query to search for.
-        :return: int - number of articles.
+        :param encoded_query: str - encoded_query to search for.
+        :param page: Optional[int] - page number to search for.
+        :return: NLI_API_Response - response from the API.
         """
-        url = self.BASE_URL.format(query=query_str)
-        res = self.session.get(url)
-        res.raise_for_status()
-        return int(res.headers["totalarticles"])
+        res = self._api_query_page(encoded_query, page=page)
+        return list(self._parse_response(res.json()))
+
+    def _get_many_pages(self, encoded_query: str, num_pages: int, start_page: int = 1) -> List[NLI_API_Response]:
+        """
+        Get many pages in an asyncio loop.
+
+        :param encoded_query: str - encoded_query to search for.
+        :param num_pages: int - number of pages to search for.
+        :param start_page: int - page number to start from.
+        :return: List[NLI_API_Response] - response from the API.
+        """
+
+        loop = asyncio.get_event_loop()
+        funcs = [loop.run_in_executor(None, self._get_page, encoded_query, i)
+                 for i in range(start_page, start_page + num_pages)]
+        res = loop.run_until_complete(asyncio.gather(*funcs))
+
+        return list(chain.from_iterable(res))
 
     def get_num_articles(self, query: Union[str, Query]) -> int:
         """
@@ -96,33 +116,15 @@ class NLI_API:
         if isinstance(query, str):
             query = Query(query)
 
-        quoted = requests.utils.quote(str(query))
-        return self._get_num_articles(quoted)
-
-    def _get_all_pages(self, query_str) -> List[NLI_API_Response]:
-        """
-        Get all pages of a query.
-
-        :param query_str: str - query to search for.
-        :return: List[NLI_API_Response] - response from the API.
-        """
-
-        num_articles = self._get_num_articles(query_str)
-        num_pages = num_articles // 50 + 1
-
-        loop = asyncio.get_event_loop()
-        funcs = [loop.run_in_executor(None, self._api_get, query_str, i+1)
-                 for i in range(num_pages)]
-        res = loop.run_until_complete(asyncio.gather(*funcs))
-
-        return list(chain.from_iterable(res))
+        res = self._api_query_page(str(query))
+        return int(res.headers["totalarticles"])
 
     def search(self, query: Union[str, Query], page: Optional[int] = None, all_pages: bool = False) -> List[NLI_API_Response]:
         """
         Search for a query.
 
         :param query: Union[str, Query] - query to search for.
-        :param page: Optional[int] - page number to search for.
+        :param page: Optional[int] - page number to search for. Defaults to first page.
         :param all_pages: bool - if True, return all pages of results.
         :return: List[NLI_API_Response] - response from the API.
         """
@@ -130,15 +132,17 @@ class NLI_API:
         if page and all_pages:
             raise ValueError("Cannot specify both page and all_pages.")
 
+        num_articles = self.get_num_articles(query)
+        num_pages = num_articles // 50 + 1
+
         if isinstance(query, str):
             query = Query(query)
-
         query_str = str(query)
 
         if all_pages:
-            return self._get_all_pages(query_str)
+            return self._get_many_pages(query_str, num_pages)
 
-        return self._api_get(query_str, page=page)
+        return self._get_page(query_str, page=page)
 
     @staticmethod
     def _parse_response(response: dict) -> Generator[NLI_API_Response, None, None]:
