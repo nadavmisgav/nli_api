@@ -1,10 +1,13 @@
 """Main module."""
+import asyncio
 from dataclasses import dataclass
-from typing import Generator, List, Union
+from itertools import chain
+from typing import Generator, List, Optional, Union
 from warnings import warn
 
 import requests
 
+from .api_ruleset import Errors
 from .query import Queries, Query
 
 
@@ -49,20 +52,93 @@ class NLI_API:
     def _get(self, url: str) -> dict:
         res = self.session.get(url)
         res.raise_for_status()
+        if "errors" in res.headers:
+            if Errors.INVALID_PAGE.value in res.headers["errors"]:
+                raise FileExistsError("Page does not exist.")
+
         return res.json()
 
-    def search(self, query: Union[Query, Queries]) -> List[NLI_API_Response]:
+    def _api_get(self, query: str, page: Optional[int] = None) -> List[NLI_API_Response]:
         """
-        Search for a query.
+        Get a response from the API.
 
-        :param query: Union[Query, Queries] - query to search for.
+        :param query: str - query to search for.
+        :param page: Optional[int] - page number to search for.
         :return: List[NLI_API_Response] - response from the API.
         """
-        quoted = requests.utils.quote(str(query))
+        quoted = requests.utils.quote(query)
         url = self.BASE_URL.format(query=quoted)
+        if page:
+            url += f"&result_page={page}"
 
         res = self._get(url)
         return list(self._parse_response(res))
+
+    def _get_num_articles(self, query_str: str) -> int:
+        """
+        Get the number of articles from the API.
+
+        :param query_str: str - query to search for.
+        :return: int - number of articles.
+        """
+        url = self.BASE_URL.format(query=query_str)
+        res = self.session.get(url)
+        res.raise_for_status()
+        return int(res.headers["totalarticles"])
+
+    def get_num_articles(self, query: Union[str, Query, Queries]) -> int:
+        """
+        Get the number of articles from the API.
+
+        :param query: Union[str, Query, Queries] - query to search for.
+        :return: int - number of articles.
+        """
+        if isinstance(query, str):
+            query = Query(query)
+
+        quoted = requests.utils.quote(str(query))
+        return self._get_num_articles(quoted)
+
+    def _get_all_pages(self, query_str) -> List[NLI_API_Response]:
+        """
+        Get all pages of a query.
+
+        :param query_str: str - query to search for.
+        :return: List[NLI_API_Response] - response from the API.
+        """
+
+        num_articles = self._get_num_articles(query_str)
+        num_pages = num_articles // 50 + 1
+
+        loop = asyncio.get_event_loop()
+        funcs = [loop.run_in_executor(None, self._api_get, query_str, i+1)
+                 for i in range(num_pages)]
+        res = loop.run_until_complete(asyncio.gather(*funcs))
+
+        return list(chain.from_iterable(res))
+
+    def search(self, query: Union[str, Query, Queries], page: Optional[int] = None, all_pages: bool = False) -> List[NLI_API_Response]:
+        """
+        Search for a query.
+
+        :param query: Union[str, Query, Queries] - query to search for.
+        :param page: Optional[int] - page number to search for.
+        :param all_pages: bool - if True, return all pages of results.
+        :return: List[NLI_API_Response] - response from the API.
+        """
+
+        if page and all_pages:
+            raise ValueError("Cannot specify both page and all_pages.")
+
+        if isinstance(query, str):
+            query = Query(query)
+
+        query_str = str(query)
+
+        if all_pages:
+            return self._get_all_pages(query_str)
+
+        return self._api_get(query_str, page=page)
 
     @staticmethod
     def _parse_response(response: dict) -> Generator[NLI_API_Response, None, None]:

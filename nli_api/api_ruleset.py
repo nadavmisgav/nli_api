@@ -21,3 +21,7 @@ class Where(Enum):
 
 
 DATE_FORMAT = ["yyyyMMdd", "yyyy"]
+
+
+class Errors(Enum):
+    INVALID_PAGE = "1014"
