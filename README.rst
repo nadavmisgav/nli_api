@@ -6,9 +6,6 @@ National Library of Israel API
 .. image:: https://img.shields.io/pypi/v/nli_api.svg
         :target: https://pypi.python.org/pypi/nli_api
 
-.. image:: https://img.shields.io/travis/nadavmisgav/nli_api.svg
-        :target: https://travis-ci.com/nadavmisgav/nli_api
-
 .. image:: https://readthedocs.org/projects/nli-api/badge/?version=latest
         :target: https://nli-api.readthedocs.io/en/latest/?version=latest
         :alt: Documentation Status
