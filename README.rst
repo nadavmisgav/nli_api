@@ -30,7 +30,8 @@ National Library of Israel API Python Implementation
 Features
 --------
 
-* TODO
+* Search API
+* Build Query
 
 Credits
 -------
