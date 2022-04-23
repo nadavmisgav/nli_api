@@ -8,7 +8,7 @@ from warnings import warn
 import requests
 
 from .api_ruleset import Errors
-from .query import Queries, Query
+from .query import Query
 
 
 @dataclass
@@ -86,11 +86,11 @@ class NLI_API:
         res.raise_for_status()
         return int(res.headers["totalarticles"])
 
-    def get_num_articles(self, query: Union[str, Query, Queries]) -> int:
+    def get_num_articles(self, query: Union[str, Query]) -> int:
         """
         Get the number of articles from the API.
 
-        :param query: Union[str, Query, Queries] - query to search for.
+        :param query: Union[str, Query] - query to search for.
         :return: int - number of articles.
         """
         if isinstance(query, str):
@@ -117,11 +117,11 @@ class NLI_API:
 
         return list(chain.from_iterable(res))
 
-    def search(self, query: Union[str, Query, Queries], page: Optional[int] = None, all_pages: bool = False) -> List[NLI_API_Response]:
+    def search(self, query: Union[str, Query], page: Optional[int] = None, all_pages: bool = False) -> List[NLI_API_Response]:
         """
         Search for a query.
 
-        :param query: Union[str, Query, Queries] - query to search for.
+        :param query: Union[str, Query] - query to search for.
         :param page: Optional[int] - page number to search for.
         :param all_pages: bool - if True, return all pages of results.
         :return: List[NLI_API_Response] - response from the API.
