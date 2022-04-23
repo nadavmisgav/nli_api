@@ -13,25 +13,25 @@ from .query import Query
 
 @dataclass
 class NLI_API_Response:
-    id: str = ""
-    date: str = ""
-    type: str = ""
-    recordid: str = ""
-    title: str = ""
-    source: str = ""
-    language: str = ""
-    identifier: str = ""
-    linkToMarc: str = ""
-    contributor: str = ""
-    creator: str = ""
-    subject: str = ""
-    accessRights: str = ""
-    publisher: str = ""
-    format: str = ""
-    non_standard_date: str = ""
-    thumbnail: str = ""
-    relation: str = ""
-    download: str = ""
+    id: str
+    date: str
+    type: str
+    recordid: str
+    title: str
+    source: str
+    language: str
+    identifier: str
+    linkToMarc: str
+    contributor: str
+    creator: str
+    subject: str
+    accessRights: str
+    publisher: str
+    format: str
+    non_standard_date: str
+    thumbnail: str
+    relation: str
+    download: str
 
 
 class NLI_API:
