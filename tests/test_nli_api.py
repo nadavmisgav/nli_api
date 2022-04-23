@@ -2,23 +2,15 @@
 
 """Tests for `nli_api` package."""
 
-import pytest
+
+import sys
+
+from .conftest import API_KEY
+
+sys.path.append('..')  # noqa: E402
+from nli_api import get_nli_api
 
 
-from nli_api import nli_api
-
-
-@pytest.fixture
-def response():
-    """Sample pytest fixture.
-
-    See more at: http://doc.pytest.org/en/latest/fixture.html
-    """
-    # import requests
-    # return requests.get('https://github.com/audreyr/cookiecutter-pypackage')
-
-
-def test_content(response):
-    """Sample pytest test function with the pytest fixture as an argument."""
-    # from bs4 import BeautifulSoup
-    # assert 'GitHub' in BeautifulSoup(response.content).title.string
+def test_get_nli_api():
+    api = get_nli_api(API_KEY)
+    assert api.session.params['api_key'] == API_KEY
